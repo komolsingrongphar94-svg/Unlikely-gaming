@@ -14,8 +14,7 @@ jobs:
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,23 +27,24 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Configure Android SDK
+      - name: Locate Android SDK tools
         run: |
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/cmdline-tools/16.0/bin" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/build-tools/35.0.0" >> $GITHUB_PATH
+          echo "SDK contents:"
+          ls -la "$ANDROID_HOME/cmdline-tools"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
 
-      - name: Check Android SDK
+      - name: Accept SDK licences
+        run: yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
+
+      - name: Install SDK packages
         run: |
-          ls "$ANDROID_HOME"
-          sdkmanager --version
-
-      - name: Accept licences
-        run: yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses || true
-
-      - name: Install Android packages
-        run: |
-          sdkmanager --sdk_root="$ANDROID_HOME" \
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
